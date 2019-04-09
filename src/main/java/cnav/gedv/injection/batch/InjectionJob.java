@@ -1,9 +1,6 @@
 package cnav.gedv.injection.batch;
 
-import cnav.gedv.injection.batch.model.User;
-import cnav.gedv.injection.batch.service.CustomItemProcessor;
-import cnav.gedv.injection.batch.service.CustomItemReader;
-import cnav.gedv.injection.batch.service.CustomItemWriter;
+import cnav.gedv.injection.batch.service.*;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.Step;
@@ -33,22 +30,36 @@ public class InjectionJob extends JobExecutionListenerSupport {
     CustomItemProcessor processor;
 
     @Autowired
+    CSVLotProcessor csvLotProcessor;
+
+    @Autowired
     CustomItemWriter writer;
+
+    @Value("${output.file}")
+    Resource outputResource;
 
     @Bean(name = "myInjectionJob")
     public Job injectionJob() {
 
-        Step step = stepBuilderFactory.get("step-1")
+        /*Step step = stepBuilderFactory.get("step-1")
                 .<User, User> chunk(5)
                 .reader(new CustomItemReader(resource))
                 .processor(processor)
                 .writer(writer)
+                .build();*/
+
+        Step splitStep = stepBuilderFactory.get("split-step(1)")
+                .<String, String> chunk(200)
+                .reader(new CSVInputFileReader(resource))
+                .processor(csvLotProcessor)
+                .writer(new CSVOutputFileWriter(outputResource))
                 .build();
+
 
         Job job = jobBuilderFactory.get("injection-job")
                 .incrementer(new RunIdIncrementer())
                 .listener(this)
-                .start(step)
+                .start(splitStep)
                 .build();
 
         return job;
